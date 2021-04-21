@@ -72,7 +72,7 @@ hook global BufSetOption filetype=ledger %{
     set-option buffer comment_line ';'
 }
 
-hook global BufSetOption filetype=lisp %{
+hook global BufSetOption filetype=(lisp|scheme) %{
     set-option buffer comment_line ';'
     set-option buffer comment_block_begin '#|'
     set-option buffer comment_block_end '|#'
@@ -113,6 +113,10 @@ hook global BufSetOption filetype=(pug|zig) %{
 hook global BufSetOption filetype=python %{
     set-option buffer comment_block_begin "'''"
     set-option buffer comment_block_end "'''"
+}
+
+hook global BufSetOption filetype=r %{
+    set-option buffer comment_line '#'
 }
 
 hook global BufSetOption filetype=ragel %{

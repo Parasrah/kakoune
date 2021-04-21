@@ -15,6 +15,7 @@ hook global WinSetOption filetype=yaml %{
     require-module yaml
 
     hook window ModeChange pop:insert:.* -group yaml-trim-indent yaml-trim-indent
+    hook window InsertChar \n -group yaml-insert yaml-insert-on-new-line
     hook window InsertChar \n -group yaml-indent yaml-indent-on-new-line
     hook -once -always window WinSetOption filetype=.* %{ remove-hooks window yaml-.+ }
 }
@@ -34,7 +35,7 @@ add-highlighter shared/yaml regions
 add-highlighter shared/yaml/code      default-region group
 add-highlighter shared/yaml/double_string region '"' (?<!\\)(\\\\)*"       fill string
 add-highlighter shared/yaml/single_string region "'" "'"                   fill string
-add-highlighter shared/yaml/comment       region '#' '$'                   fill comment
+add-highlighter shared/yaml/comment       region '(?:^| )#' $              fill comment
 
 add-highlighter shared/yaml/code/ regex ^(---|\.\.\.)$ 0:meta
 add-highlighter shared/yaml/code/ regex ^(\h*:\w*) 0:keyword
@@ -49,10 +50,15 @@ define-command -hidden yaml-trim-indent %{
     try %{ execute-keys -draft -itersel <a-x> s \h+$ <ret> d }
 }
 
-define-command -hidden yaml-indent-on-new-line %{
+define-command -hidden yaml-insert-on-new-line %{
     evaluate-commands -draft -itersel %{
         # copy '#' comment prefix and following white spaces
         try %{ execute-keys -draft k <a-x> s ^\h*\K#\h* <ret> y gh j P }
+    }
+}
+
+define-command -hidden yaml-indent-on-new-line %{
+    evaluate-commands -draft -itersel %{
         # preserve previous line indent
         try %{ execute-keys -draft <semicolon> K <a-&> }
         # filter previous line

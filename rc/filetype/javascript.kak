@@ -29,8 +29,8 @@ hook global WinSetOption filetype=(javascript|typescript|javascriptreact|typescr
 
     hook window ModeChange pop:insert:.* -group "%val{hook_param_capture_1}-trim-indent" javascript-trim-indent
     hook window InsertChar .* -group "%val{hook_param_capture_1}-indent" javascript-indent-on-char
-    hook window InsertChar \n -group "%val{hook_param_capture_1}-insert" javascript-insert-on-newline
-    hook window InsertChar \n -group "%val{hook_param_capture_1}-indent" javascript-indent-on-newline
+    hook window InsertChar \n -group "%val{hook_param_capture_1}-insert" javascript-insert-on-new-line
+    hook window InsertChar \n -group "%val{hook_param_capture_1}-indent" javascript-indent-on-new-line
 
     hook -once -always window WinSetOption filetype=.* "
         remove-hooks window %val{hook_param_capture_1}-.+
@@ -65,19 +65,23 @@ define-command -hidden javascript-indent-on-char %<
     >
 >
 
-# TODO: remove lines that are specific to c-family
-define-command -hidden javascript-indent-on-newline %< evaluate-commands -draft %<
-    execute-keys <semicolon>
-    try %<
-        # if previous line is part of a comment, do nothing
-        execute-keys -draft <a-?>/\*<ret> <a-K>^\h*[^/*\h]<ret>
-    > catch %<
-        # else if previous line closed a paren (possibly followed by words and a comment),
-        # copy indent of the opening paren line
-        execute-keys -draft k<a-x> 1s(\))(\h+\w+)*\h*(\;\h*)?(?://[^\n]+)?\n\z<ret> m<a-semicolon>J <a-S> 1<a-&>
-    > catch %<
-        # else indent new lines with the same level as the previous one
-        execute-keys -draft K <a-&>
+define-command -hidden javascript-insert-on-new-line %<
+    evaluate-commands -draft -itersel %<
+        # copy // comments prefix and following white spaces
+        try %{ execute-keys -draft k <a-x> s ^\h*\K/{2,}\h* <ret> y gh j P }
+    >
+>
+
+define-command -hidden javascript-indent-on-new-line %<
+    evaluate-commands -draft -itersel %<
+        # preserve previous line indent
+        try %{ execute-keys -draft <semicolon> K <a-&> }
+        # filter previous line
+        try %{ execute-keys -draft k : javascript-trim-indent <ret> }
+        # indent after lines beginning / ending with opener token
+        try %_ execute-keys -draft k <a-x> s [[({] <ret> <space> <a-l> <a-K> [\])}] <ret> j <a-gt> _
+        # deindent closing token(s) when after cursor
+        try %_ execute-keys -draft <a-x> <a-k> ^\h*[})\]] <ret> gh / [})\]] <ret> m <a-S> 1<a-&> _
     >
     # remove previous empty lines resulting from the automatic indent
     try %< execute-keys -draft k <a-x> <a-k>^\h+$<ret> Hd >
@@ -184,7 +188,7 @@ define-command -hidden init-javascript-filetype -params 1 %~
     add-highlighter "shared/%arg{1}/literal/"       fill string
     add-highlighter "shared/%arg{1}/literal/"       regex \$\{.*?\} 0:value
 
-    add-highlighter "shared/%arg{1}/code/" regex [^$_]\b(document|false|null|parent|self|this|true|undefined|window)\b 1:value
+    add-highlighter "shared/%arg{1}/code/" regex (?:^|[^$_])\b(document|false|null|parent|self|this|true|undefined|window)\b 1:value
     add-highlighter "shared/%arg{1}/code/" regex "-?\b[0-9]*\.?[0-9]+" 0:value
     add-highlighter "shared/%arg{1}/code/" regex \b(Array|Boolean|Date|Function|Number|Object|RegExp|String|Symbol)\b 0:type
 

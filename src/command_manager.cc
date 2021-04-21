@@ -323,7 +323,7 @@ expand_token(const Token& token, const Context& context, const ShellContext& she
             content, context, {}, ShellManager::Flags::WaitForStdout,
             shell_context).first;
 
-        if (str.back() == '\n')
+        if (not str.empty() and str.back() == '\n')
             str.resize(str.length() - 1, 0);
 
         return {str};
@@ -508,9 +508,17 @@ void CommandManager::execute_single_command(CommandParameters params,
     if (command_it == m_commands.end())
         throw command_not_found(params[0]);
 
-    const DebugFlags debug_flags = context.options()["debug"].get<DebugFlags>();
+    auto debug_flags = context.options()["debug"].get<DebugFlags>();
+    auto start = (debug_flags & DebugFlags::Profile) ? Clock::now() : Clock::time_point{};
     if (debug_flags & DebugFlags::Commands)
-        write_to_debug_buffer(format("command {} {}", params[0], join(param_view, ' ')));
+        write_to_debug_buffer(format("command {}", join(params, ' ')));
+
+    on_scope_end([&] {
+        if (not (debug_flags & DebugFlags::Profile))
+            return;
+        auto full = std::chrono::duration_cast<std::chrono::microseconds>(Clock::now() - start);
+        write_to_debug_buffer(format("command {} took {} us", params[0], full.count()));
+    });
 
     try
     {
@@ -674,20 +682,17 @@ Completions CommandManager::complete(const Context& context,
 
         if (token_type == Token::Type::Raw)
         {
-            for (auto& c : completions.candidates)
+            const bool at_token_start = completions.start == 0;
+            for (auto& candidate : completions.candidates)
             {
-                if (c.substr(0_byte, 1_byte) == "%" or any_of(c, [](auto i) { return contains("; \t'\"", i); }))
-                    c = quote(c);
+                const StringView to_escape = ";\n \t";
+                if ((at_token_start and candidate.substr(0_byte, 1_byte) == "%") or
+                    any_of(candidate, [&](auto c) { return contains(to_escape, c); }))
+                    candidate = at_token_start ? quote(candidate) : escape(candidate, to_escape, '\\');
             }
         }
         else if (token_type == Token::Type::RawQuoted)
-        {
-            kak_assert(completions.start > 0);
-            --completions.start;
             completions.flags |= Completions::Flags::Quoted;
-            for (auto& c : completions.candidates)
-                c = quote(c);
-        }
         else
             kak_assert(false);
 
@@ -702,7 +707,7 @@ Completions CommandManager::complete(const Context& context,
                                 token.type == Token::Type::RawQuoted))
     {
         StringView query = command_line.substr(start, cursor_pos_in_token);
-        return requote(offset_pos(complete_command_name(context, query), start), token.type);
+        return offset_pos(requote(complete_command_name(context, query), token.type), start);
     }
 
     switch (token.type)
@@ -761,9 +766,9 @@ Completions CommandManager::complete(const Context& context,
         Vector<String> params;
         for (auto it = tokens.begin() + 1; it != tokens.end(); ++it)
             params.push_back(it->content);
-        return requote(offset_pos(command_it->value.completer(
+        return offset_pos(requote(command_it->value.completer(
             context, flags, params, tokens.size() - 2,
-            cursor_pos_in_token), start), token.type);
+            cursor_pos_in_token), token.type), start);
     }
     case Token::Type::RawEval:
     default:
