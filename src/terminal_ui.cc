@@ -722,7 +722,13 @@ Optional<Key> TerminalUI::get_next_key()
 
         auto masked_key = [&](Codepoint key) {
             int mask = std::max(params[1] - 1, 0);
-            return Key{parse_mask(mask), key};
+            Key::Modifiers modifiers = parse_mask(mask);
+            if (is_basic_alpha(key) and (modifiers & Key::Modifiers::Shift))
+            {
+                modifiers &= ~Key::Modifiers::Shift;
+                key = to_upper(key);
+            }
+            return Key{modifiers, key};
         };
 
         switch (c)
