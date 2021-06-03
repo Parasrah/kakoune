@@ -1,18 +1,26 @@
 # Detection
 # ‾‾‾‾‾‾‾‾‾
 
-hook global BufCreate .*[.]m?(js)x? %{
+hook global BufCreate .*[.]m?(js) %{
     set-option buffer filetype javascript
 }
 
-hook global BufCreate .*[.](ts)x? %{
+hook global BufCreate .*[.](ts) %{
     set-option buffer filetype typescript
+}
+
+hook global BufCreate .*[.]m?(jsx) %{
+    set-option buffer filetype javascriptreact
+}
+
+hook global BufCreate .*[.](tsx) %{
+    set-option buffer filetype typescriptreact
 }
 
 # Initialization
 # ‾‾‾‾‾‾‾‾‾‾‾‾‾‾
 
-hook global WinSetOption filetype=(javascript|typescript) %{
+hook global WinSetOption filetype=(javascript|typescript|javascriptreact|typescriptreact) %{
     require-module javascript
 
     hook window ModeChange pop:insert:.* -group "%val{hook_param_capture_1}-trim-indent" javascript-trim-indent
@@ -25,12 +33,12 @@ hook global WinSetOption filetype=(javascript|typescript) %{
     "
 }
 
-hook -group javascript-highlight global WinSetOption filetype=javascript %{
+hook -group javascript-highlight global WinSetOption filetype=(javascript|javascriptreact) %{
     add-highlighter window/javascript ref javascript
     hook -once -always window WinSetOption filetype=.* %{ remove-highlighter window/javascript }
 }
 
-hook -group typescript-highlight global WinSetOption filetype=typescript %{
+hook -group typescript-highlight global WinSetOption filetype=(typescript|typescriptreact) %{
     add-highlighter window/typescript ref typescript
     hook -once -always window WinSetOption filetype=.* %{ remove-highlighter window/typescript }
 }

@@ -30,10 +30,19 @@ hook -group elixir-highlight global WinSetOption filetype=elixir %{
     hook -once -always window WinSetOption filetype=.* %{ remove-highlighter window/elixir }
 }
 
-hook global WinSetOption filetype=eex %{
+hook global WinSetOption filetype=(eex) %{
+    require-module html
     require-module eex
 
     hook -once -always window WinSetOption filetype=.* %{ remove-hooks window eex-.+ }
+
+    hook window ModeChange pop:insert:.* -group "%val{hook_param_capture_1}-trim-indent"  html-trim-indent
+    hook window InsertChar '>' -group "%val{hook_param_capture_1}-indent" html-indent-on-greater-than
+    hook window InsertChar \n -group "%val{hook_param_capture_1}-indent" html-indent-on-new-line
+
+    hook -once -always window WinSetOption "filetype=.*" "
+        remove-hooks window ""%val{hook_param_capture_1}-.+""
+    "
 }
 
 hook -group eex-highlight global WinSetOption filetype=eex %{
